@@ -14,5 +14,7 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Inte
 
     long countByDestinatarioAndEstadoNot(String destinatario, EstadoNotificacion estado);
 
+    long countByEstadoNot(EstadoNotificacion estado);
+
     boolean existsByEventId(String eventId);
 }
