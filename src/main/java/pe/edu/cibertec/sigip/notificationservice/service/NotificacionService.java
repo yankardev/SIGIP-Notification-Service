@@ -26,10 +26,6 @@ public class NotificacionService {
 
     private final NotificacionRepository repo;
 
-    /**
-     * Registra el aviso de un evento de pedido. Es idempotente: RabbitMQ puede entregar el mismo
-     * mensaje más de una vez (reintentos, reconexiones) y solo debe quedar una notificación.
-     */
     @Transactional
     public Optional<Notificacion> registrarDesdeEvento(PedidoEvento evento) {
         if (evento.eventId() != null && repo.existsByEventId(evento.eventId())) {
@@ -51,7 +47,7 @@ public class NotificacionService {
 
     @Transactional(readOnly = true)
     public List<NotificacionResponse> listar(UsuarioActual usuario) {
-        var lista = usuario.esAdmin()
+        var lista = usuario.esInterno()
                 ? repo.findAllByOrderByFechaDesc()
                 : repo.findByDestinatarioOrderByFechaDesc(usuario.nombre());
         return lista.stream().map(NotificacionResponse::de).toList();
@@ -59,7 +55,9 @@ public class NotificacionService {
 
     @Transactional(readOnly = true)
     public long contarNoLeidas(UsuarioActual usuario) {
-        return repo.countByDestinatarioAndEstadoNot(usuario.nombre(), EstadoNotificacion.LEIDA);
+        return usuario.esInterno()
+                ? repo.countByEstadoNot(EstadoNotificacion.LEIDA)
+                : repo.countByDestinatarioAndEstadoNot(usuario.nombre(), EstadoNotificacion.LEIDA);
     }
 
     @Transactional(readOnly = true)
@@ -112,10 +110,9 @@ public class NotificacionService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Notificación " + id + " no encontrada"));
     }
 
-    /** Un cliente solo ve sus propios avisos; los ajenos se reportan como inexistentes (404). */
     private Notificacion buscarVisible(Integer id, UsuarioActual usuario) {
         Notificacion n = buscar(id);
-        if (!usuario.esAdmin() && !n.getDestinatario().equals(usuario.nombre())) {
+        if (!usuario.esInterno() && !n.getDestinatario().equals(usuario.nombre())) {
             throw new RecursoNoEncontradoException("Notificación " + id + " no encontrada");
         }
         return n;
